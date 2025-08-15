@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Controle de Paiol — Final</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{ --bg:#071426; --panel:#0b1220; --muted:#94a3b8; --accent:#2563eb; --text:#e6eef8; --card:#0f172a; --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444; }
+*{box-sizing:border-box} html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg),#020617);color:var(--text);}
+header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.03);background:linear-gradient(90deg,#071426,#0b1530)}
+.wrap{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px}
+h1{margin:0;font-size:18px} .muted{color:var(--muted);font-size:13px}
+main{max-width:1100px;margin:18px auto;padding:16px;display:grid;grid-template-columns:320px 1fr;gap:16px}
+@media(max-width:820px){main{grid-template-columns:1fr}}
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);border:1px solid rgba(255,255,255,.04);padding:12px;border-radius:12px}
+label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+input,select,textarea,button{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;color:var(--text)}
+button.primary{background:linear-gradient(180deg,var(--accent),#1d4ed8);border:none;color:white;font-weight:700;cursor:pointer}
+.list{display:flex;flex-direction:column;gap:10px;margin-top:8px;max-height:56vh;overflow:auto;padding-right:6px}
+.card{background:rgba(255,255,255,.02);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.02)}
+.row{display:flex;gap:8px;align-items:center} .right{margin-left:auto} .help{font-size:13px;color:var(--muted);margin-top:8px}
+.tabs{display:flex;gap:8px;margin-bottom:10px} .tab{padding:8px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,.03);cursor:pointer} .tab.active{background:var(--card);border-color:var(--accent)}
+.msg{padding:8px;border-radius:8px;margin-top:10px} .msg.ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.12);color:var(--ok)} .msg.err{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.12);color:var(--bad)} .msg.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.1);color:var(--warn)}
+.table{width:100%;border-collapse:collapse} .table th,.table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03);text-align:left;font-size:13px;color:var(--text)}
+.footer{max-width:1100px;margin:20px auto;color:var(--muted);text-align:center} .small{font-size:13px;padding:8px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Controle de Paiol</h1><div style="margin-left:auto" class="muted">Gerenciamento • Multiusuário</div></div></header>
+
+<main>
+  <aside class="panel">
+    <div id="authArea">
+      <div id="userRow" style="display:none" class="row">
+        <div class="muted">Conectado como <strong id="userNick"></strong></div>
+        <button id="signOutBtn" class="small right">Sair</button>
+      </div>
+
+      <form id="authForm" class="card" style="display:block" onsubmit="return false;">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" placeholder="seu@exemplo.com" autocomplete="username">
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" placeholder="mín. 8 caracteres" autocomplete="current-password">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="btnLogin" class="primary" type="button">Entrar</button>
+          <button id="btnRegister" type="button">Registrar</button>
+        </div>
+        <div id="authMsg" class="help muted"></div>
+      </form>
+    </div>
+
+    <div id="manageSection" style="display:none; margin-top:12px">
+      <h3 style="margin:4px 0">Adicionar novo paiol</h3>
+      <input id="nomePaiol" placeholder="Ex.: Paiol 5">
+      <button id="btnAdd" class="primary small" style="margin-top:8px">Adicionar paiol</button>
+      <div class="help">Qualquer usuário autenticado pode adicionar/excluir paióis.</div>
+
+      <h3 style="margin:14px 0 6px">Remover paiol</h3>
+      <select id="selectRemover"><option value="">Selecione um paiol</option></select>
+      <button id="btnRemove" class="small" style="margin-top:8px">Remover selecionado</button>
+
+      <div style="height:12px"></div>
+      <button id="btnCreateDefaults" class="small" type="button">Criar paióis padrão (1–4)</button>
+      <div id="actionMsg"></div>
+    </div>
+  </aside>
+
+  <section class="panel">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div>
+        <h2 style="margin:0">Paióis</h2>
+        <div class="muted">Selecione um paiol para editar ou veja o histórico</div>
+      </div>
+      <div style="margin-left:auto" class="row">
+        <div class="tabs" role="tablist">
+          <button id="tabPanel" class="tab active">Painel</button>
+          <button id="tabHist" class="tab">Histórico</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="listArea" class="list" aria-live="polite"></div>
+    <div id="empty" class="help muted" style="display:none;margin-top:12px">Nenhum paiol encontrado. Use "Criar paióis padrão" ou adicione um novo.</div>
+
+    <div id="editor" style="display:none;margin-top:12px" class="card" role="dialog" aria-modal="true">
+      <h3 id="editorTitle">Editar Paiol</h3>
+      <label>Nome</label>
+      <input id="editName" disabled>
+      <label>Temperatura Atual (°C)</label>
+      <input id="editTemp" type="number" step="0.1">
+      <label>Temperatura Máx (°C)</label>
+      <input id="editMax" type="number" step="0.1">
+      <label>Temperatura Mín (°C)</label>
+      <input id="editMin" type="number" step="0.1">
+      <label>Umidade (%)</label>
+      <input id="editUmid" type="number" step="0.1">
+      <label>Número do Lacre</label>
+      <input id="editLacre" type="text">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="btnSave" class="primary">Salvar</button>
+        <button id="btnCancel" class="small">Cancelar</button>
+      </div>
+      <div id="saveMsg" class="help muted"></div>
+    </div>
+
+    <div id="histArea" style="display:none;margin-top:12px" class="card">
+      <h3>Histórico de alterações</h3>
+      <div style="display:flex;gap:8px;margin-top:8px;margin-bottom:8px"><button id="btnExportCsv" class="small">Exportar Histórico (CSV)</button><button id="btnExportCsvPaiol" class="small">Exportar Histórico (CSV) — Paiol selecionado</button></div>
+      <div class="help muted">Apenas usuários logados podem ver o histórico.</div>
+      <table class="table" id="histTable" role="table">
+        <thead><tr><th>Data/Hora</th><th>Paiol</th><th>Usuário</th><th>Alterações</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+  </section>
+</main>
+
+<div class="footer">© <span id="ano"></span> Controle de Paiol</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc, getDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {"apiKey": "AIzaSyAYvkpAe9Nfnn53JlSg8vOrKUFmUHn6oek", "authDomain": "controle-de-paiol.firebaseapp.com", "projectId": "controle-de-paiol", "storageBucket": "controle-de-paiol.firebasestorage.app", "messagingSenderId": "202438664461", "appId": "1:202438664461:web:c60d98f85fe8ab2ece9044", "measurementId": "G-BD3BR04LJQ"};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const $ = id => document.getElementById(id);
+  const listArea = $('listArea');
+  const empty = $('empty');
+  const manageSection = $('manageSection');
+  const actionMsg = $('actionMsg');
+  const selectRemover = $('selectRemover');
+  const editor = $('editor');
+  const histArea = $('histArea');
+  const histTableBody = document.querySelector('#histTable tbody');
+  let currentEdit = null;
+  let unsubscribe = null;
+
+  function showAction(msg, type='ok') {
+    actionMsg.innerHTML = '<div class="msg '+(type==='ok'?'ok':type==='warn'?'warn':'err')+'">'+msg+'</div>';
+    setTimeout(()=> actionMsg.innerHTML = '', 4000);
+  }
+
+  function escapeHtml(s) { return (s||'').toString().replace(/</g,'&lt;'); }
+
+  // UI tabs
+  $('tabPanel').addEventListener('click', () => {
+    $('tabPanel').classList.add('active');
+    $('tabHist').classList.remove('active');
+    histArea.style.display='none';
+    editor.style.display='none';
+    listArea.style.display='block';
+  });
+  $('tabHist').addEventListener('click', () => {
+    $('tabHist').classList.add('active');
+    $('tabPanel').classList.remove('active');
+    histArea.style.display='block';
+    editor.style.display='none';
+    listArea.style.display='none';
+    loadHistory();
+  });
+
+  // Auth handlers
+  $('btnLogin').addEventListener('click', async () => {
+    try {
+      await signInWithEmailAndPassword(auth, $('email').value.trim(), $('senha').value);
+    } catch(e) { $('authMsg').textContent = e.message; }
+  });
+  $('btnRegister').addEventListener('click', async () => {
+    try {
+      const userCred = await createUserWithEmailAndPassword(auth, $('email').value.trim(), $('senha').value);
+      await promptForNickname(userCred.user);
+    } catch(e) { $('authMsg').textContent = e.message; }
+  });
+  $('signOutBtn').addEventListener('click', async () => { await signOut(auth); });
+
+  onAuthStateChanged(auth, user => {
+    if(user) {
+      $('authForm').style.display='none';
+      $('userRow').style.display='flex';
+      $('userNick').textContent = user.displayName || user.email;
+      manageSection.style.display='block';
+      startListeners();
+      if(!user.displayName) promptForNickname(user);
+    } else {
+      $('authForm').style.display='block';
+      $('userRow').style.display='none';
+      manageSection.style.display='none';
+      if(unsubscribe) unsubscribe();
+      listArea.innerHTML='';
+      selectRemover.innerHTML = '<option value="">Selecione um paiol</option>';
+      histTableBody.innerHTML='';
+    }
+  });
+
+  async function promptForNickname(user) {
+    let nick = null;
+    while(!nick) {
+      nick = prompt("Escolha um apelido (como será exibido no histórico):");
+      if(nick === null) break;
+      nick = (nick||'').trim();
+    }
+    if(nick) {
+      try {
+        await updateProfile(user, { displayName: nick });
+        $('userNick').textContent = nick;
+      } catch(e) { console.error('Erro apelido', e); }
+    }
+  }
+
+  async function addPaiol(name) {
+    if(!name) return showAction("Digite um nome", 'warn');
+    try {
+      await addDoc(collection(db,'paiois'), { nome: name, tempAtual: null, tempMax: null, tempMin: null, umid: null, lacre: null, lastUpdate: null, lastBy: null, createdAt: serverTimestamp() });
+      showAction("Paiol adicionado", 'ok');
+    } catch(e) { showAction("Falha ao adicionar: "+e.message, 'err'); }
+  }
+  $('btnAdd').addEventListener('click', () => addPaiol($('nomePaiol').value.trim()));
+
+  async function removePaiolAction() {
+    const id = selectRemover.value;
+    if(!id) return showAction("Selecione um paiol", 'warn');
+    if(!confirm("Confirmar remoção do paiol?")) return;
+    try {
+      await deleteDoc(doc(db,'paiois',id));
+      showAction("Paiol removido", 'ok');
+    } catch(e) { showAction("Falha ao remover: "+e.message, 'err'); }
+  }
+  $('btnRemove').addEventListener('click', removePaiolAction);
+
+  $('btnCreateDefaults').addEventListener('click', async () => {
+    const defaults = ['Paiol 1','Paiol 2','Paiol 3','Paiol 4'];
+    for(const n of defaults) await addPaiol(n);
+  });
+
+  async function startListeners() {
+    if(unsubscribe) unsubscribe();
+    try {
+      const q = query(collection(db,'paiois'), orderBy('createdAt','desc'));
+      unsubscribe = onSnapshot(q, snap => {
+        listArea.innerHTML=''; selectRemover.innerHTML = '<option value="">Selecione um paiol</option>';
+        if(snap.empty) empty.style.display='block'; else empty.style.display='none';
+        snap.forEach(d=> {
+          const data = d.data(); const id = d.id;
+          const div = document.createElement('div'); div.className='card';
+          const lastInfo = data.lastUpdate ? new Date(data.lastUpdate.toDate()).toLocaleString() : '—';
+          const lastBy = data.lastBy || '—';
+          div.innerHTML = `<div class='row'><strong>${escapeHtml(data.nome)}</strong><div class='right muted'>Última: ${lastInfo}</div></div>
+            <div class='help'>Temp atual: ${data.tempAtual==null?'-':data.tempAtual} °C • Umid: ${data.umid==null?'-':data.umid}%</div>
+            <div style='display:flex;gap:8px;margin-top:8px'>
+              <button class='small' data-edit='${id}'>Editar</button>
+              <button class='small' data-history='${id}'>Histórico</button>
+            </div>
+            <div class='help muted' style='margin-top:6px'>Última atualização por: ${escapeHtml(lastBy)}</div>`;
+          listArea.appendChild(div);
+          const opt = document.createElement('option'); opt.value = id; opt.textContent = data.nome; selectRemover.appendChild(opt);
+        });
+        document.querySelectorAll('button[data-edit]').forEach(b=> b.onclick = ()=> openEditor(b.getAttribute('data-edit')));
+        document.querySelectorAll('button[data-history]').forEach(b=> b.onclick = ()=> showHistoryForPaiol(b.getAttribute('data-history')));
+      }, err => { showAction("Erro ao ouvir paióis: "+err.message, 'err'); });
+    } catch(e) { showAction("Erro iniciando listeners: "+e.message, 'err'); }
+  }
+
+  function escapeHtml(s) { return (s||'').toString().replace(/</g,'&lt;'); }
+
+  async function openEditor(id) {
+    currentEdit = id;
+    try {
+      const docRef = doc(db,'paiois',id);
+      const snap = await getDoc(docRef);
+      if(!snap.exists()) { showAction("Paiol não encontrado",'err'); return; }
+      const d = snap.data();
+      $('editName').value = d.nome;
+      $('editTemp').value = d.tempAtual==null?'':d.tempAtual;
+      $('editMax').value = d.tempMax==null?'':d.tempMax;
+      $('editMin').value = d.tempMin==null?'':d.tempMin;
+      $('editUmid').value = d.umid==null?'':d.umid;
+      $('editLacre').value = d.lacre || '';
+      $('editorTitle').textContent = 'Editar — '+d.nome;
+      editor.style.display = 'block';
+      histArea.style.display = 'none';
+      window.scrollTo({top:0,behavior:'smooth'});
+    } catch(e) { showAction("Erro ao abrir editor: "+e.message,'err'); }
+  }
+
+  $('btnCancel').addEventListener('click', () => { editor.style.display='none'; currentEdit=null; });
+
+  $('btnSave').addEventListener('click', async () => {
+    if(!currentEdit) return;
+    const temp = document.getElementById('editTemp').value ? parseFloat(document.getElementById('editTemp').value) : null;
+    const max = document.getElementById('editMax').value ? parseFloat(document.getElementById('editMax').value) : null;
+    const min = document.getElementById('editMin').value ? parseFloat(document.getElementById('editMin').value) : null;
+    const umid = document.getElementById('editUmid').value ? parseFloat(document.getElementById('editUmid').value) : null;
+    const lacre = document.getElementById('editLacre').value ? document.getElementById('editLacre').value.trim() : null;
+    try {
+      const docRef = doc(db,'paiois',currentEdit);
+      await updateDoc(docRef, { tempAtual: temp, tempMax: max, tempMin: min, umid: umid, lacre: lacre, lastUpdate: serverTimestamp(), lastBy: auth.currentUser.displayName || auth.currentUser.email });
+      await addDoc(collection(db,'history'), { t: serverTimestamp(), paiolId: currentEdit, paiolName: document.getElementById('editName').value, tempAtual: temp, tempMax: max, tempMin: min, umid: umid, lacre: lacre, user: auth.currentUser.displayName || auth.currentUser.email });
+      showAction("Atualização salva","ok");
+      editor.style.display='none'; currentEdit=null;
+    } catch(e) { showAction("Falha ao salvar: "+e.message,'err'); }
+  });
+
+  async function loadHistory() {
+    histTableBody.innerHTML='';
+    try {
+      const q = query(collection(db,'history'), orderBy('t','desc'));
+      const snap = await getDocs(q);
+      snap.forEach(d=> {
+        const row = d.data();
+        const dt = row.t && row.t.toDate ? row.t.toDate().toLocaleString() : '—';
+        const changes = [];
+        if(row.tempAtual!=null) changes.push('Atual: '+row.tempAtual+'°C');
+        if(row.tempMax!=null) changes.push('Máx: '+row.tempMax+'°C');
+        if(row.tempMin!=null) changes.push('Mín: '+row.tempMin+'°C');
+        if(row.umid!=null) changes.push('Umid: '+row.umid+'%');
+        if(row.lacre) changes.push('Lacre: '+row.lacre);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${dt}</td><td>${escapeHtml(row.paiolName)}</td><td>${escapeHtml(row.user)}</td><td>${escapeHtml(changes.join('; '))}</td>`;
+        histTableBody.appendChild(tr);
+      });
+    } catch(e) { showAction("Falha ao carregar histórico: "+e.message,'err'); }
+  }
+
+  async function showHistoryForPaiol(paiolId) {
+    histTableBody.innerHTML='';
+    try {
+      const q = query(collection(db,'history'), orderBy('t','desc'));
+      const snap = await getDocs(q);
+      snap.forEach(d=> {
+        const row = d.data();
+        if(row.paiolId !== paiolId) return;
+        const dt = row.t && row.t.toDate ? row.t.toDate().toLocaleString() : '—';
+        const changes = [];
+        if(row.tempAtual!=null) changes.push('Atual: '+row.tempAtual+'°C');
+        if(row.tempMax!=null) changes.push('Máx: '+row.tempMax+'°C');
+        if(row.tempMin!=null) changes.push('Mín: '+row.tempMin+'°C');
+        if(row.umid!=null) changes.push('Umid: '+row.umid+'%');
+        if(row.lacre) changes.push('Lacre: '+row.lacre);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${dt}</td><td>${escapeHtml(row.paiolName)}</td><td>${escapeHtml(row.user)}</td><td>${escapeHtml(changes.join('; '))}</td>`;
+        histTableBody.appendChild(tr);
+      });
+      document.getElementById('tabHist').click();
+    } catch(e) { showAction("Falha ao carregar histórico: "+e.message,'err'); }
+  }
+
+  document.getElementById('ano').textContent = new Date().getFullYear();
+
+}); // DOMContentLoaded
+
+// --- Exportar histórico como CSV ---
+async function exportHistoryCSV(all=true) {
+  try {
+    // Query history; if all==false and currentEdit set, filter by paiolId=currentEdit
+    let q;
+    if(all) {
+      q = query(collection(db,'history'), orderBy('t','desc'));
+    } else {
+      if(!currentEdit) { alert('Nenhum paiol selecionado para exportar. Abra o editor do paiol e tente novamente.'); return; }
+      q = query(collection(db,'history'), orderBy('t','desc'));
+    }
+    const snap = await getDocs(q);
+    if(snap.empty){ alert('Histórico vazio. Nada para exportar.'); return; }
+    // Build CSV rows
+    const rows = [];
+    const header = ['DataHora','PaiolId','PaiolNome','Usuario','TempAtual','TempMax','TempMin','Umidade','Lacre'];
+    rows.push(header.join(','));
+    snap.forEach(docSnap => {
+      const r = docSnap.data();
+      if(!all && currentEdit && r.paiolId !== currentEdit) return; // skip non matching if filtering
+      const dt = (r.t && r.t.toDate) ? r.t.toDate().toISOString() : (r.t || '');
+      const paiolId = r.paiolId || '';
+      const paiolName = r.paiolName ? r.paiolName.toString().replace(/"/g,'""') : '';
+      const user = r.user ? r.user.toString().replace(/"/g,'""') : '';
+      const tempAtual = (r.tempAtual!=null) ? r.tempAtual : '';
+      const tempMax = (r.tempMax!=null) ? r.tempMax : '';
+      const tempMin = (r.tempMin!=null) ? r.tempMin : '';
+      const umid = (r.umid!=null) ? r.umid : '';
+      const lacre = r.lacre ? r.lacre.toString().replace(/"/g,'""') : '';
+      // wrap fields that may contain commas or quotes
+      const line = [
+        `"${dt}"`,
+        `"${paiolId}"`,
+        `"${paiolName}"`,
+        `"${user}"`,
+        `"${tempAtual}"`,
+        `"${tempMax}"`,
+        `"${tempMin}"`,
+        `"${umid}"`,
+        `"${lacre}"`
+      ].join(',');
+      rows.push(line);
+    });
+    if(rows.length<=1){ alert('Nenhum registro correspondente para exportar.'); return; }
+    const csvContent = rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const filename = 'historico_paiol_' + (all ? 'todos_' : (currentEdit || 'filtrado_')) + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
+    // Create a temporary link and click it
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(()=>{ URL.revokeObjectURL(link.href); link.remove(); }, 5000);
+  } catch(e) {
+    console.error('Erro exportando histórico:', e);
+    alert('Falha ao exportar histórico: ' + (e && e.message ? e.message : e));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  // Attach export buttons (may be added dynamically)
+  const btn = document.getElementById('btnExportCsv');
+  if(btn) btn.addEventListener('click', ()=> exportHistoryCSV(true));
+  const btn2 = document.getElementById('btnExportCsvPaiol');
+  if(btn2) btn2.addEventListener('click', ()=> exportHistoryCSV(false));
+});
+// --- end export ---
+</script>
+</body>
+</html>
