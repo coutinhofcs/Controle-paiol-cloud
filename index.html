@@ -1,0 +1,360 @@
+
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Controle de Paiol — Gestão dinâmica</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root{--bg:#0b1220;--card:#0f172a;--muted:#94a3b8;--accent:#2563eb;--text:#e6eef8;}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial;background:linear-gradient(180deg,#051021,#071426);color:var(--text);min-height:100vh}
+  header{background:linear-gradient(90deg,#0f172a,#071426);padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.03)}
+  .wrap{max-width:1100px;margin:0 auto;display:flex;gap:12px;align-items:center}
+  h1{margin:0;font-size:18px}
+  .muted{color:var(--muted);font-size:13px}
+  main{max-width:1100px;margin:18px auto;padding:0 16px 48px;display:grid;grid-template-columns:320px 1fr;gap:16px}
+  @media (max-width:800px){main{grid-template-columns:1fr}}
+  .panel{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);border:1px solid rgba(255,255,255,.04);padding:12px;border-radius:12px}
+  label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+  input,button,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;color:var(--text)}
+  button.primary{background:linear-gradient(180deg,var(--accent),#1d4ed8);border:none;color:white;font-weight:700;cursor:pointer}
+  .small{font-size:13px;padding:8px}
+  .list {display:flex;flex-direction:column;gap:10px;margin-top:8px;max-height:56vh;overflow:auto;padding-right:6px}
+  .card{background:rgba(255,255,255,.02);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.02)}
+  .row{display:flex;gap:8px;align-items:center}
+  .right{margin-left:auto}
+  .help{font-size:13px;color:var(--muted);margin-top:8px}
+  .msg{padding:8px;border-radius:8px;margin-top:10px}
+  .msg.ok{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.18);color:#b7f5da}
+  .msg.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);color:#ffe7c3}
+  .msg.err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.14);color:#ffd6d6}
+  footer{max-width:1100px;margin:20px auto;color:var(--muted);text-align:center}
+  .toolbar{display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Controle de Paiol</h1><div style="margin-left:auto" class="muted">Gerenciamento de paióis — Isa</div></div></header>
+
+<main>
+  <aside class="panel" id="leftPanel">
+    <div id="authArea">
+      <div id="userRow" style="display:none" class="row">
+        <div class="muted">Conectado como <strong id="userEmail"></strong></div>
+        <button id="signOutBtn" class="small right">Sair</button>
+      </div>
+
+      <form id="authForm" class="card" style="display:block">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" placeholder="seu@exemplo.com" autocomplete="username">
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" placeholder="mín. 8 caracteres" autocomplete="current-password">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="btnLogin" class="primary" type="button">Entrar</button>
+          <button id="btnRegister" type="button">Registrar</button>
+        </div>
+        <div id="authMsg" class="help muted"></div>
+      </form>
+    </div>
+
+    <div style="height:12px"></div>
+    <div id="configWarning" class="msg warn" style="display:none"></div>
+
+    <section id="manage" style="display:none">
+      <h3 style="margin:4px 0">Adicionar novo paiol</h3>
+      <input id="nomePaiol" placeholder="Ex.: Paiol 5">
+      <button id="btnAdd" class="primary small" style="margin-top:8px">Adicionar paiol</button>
+      <div class="help">Qualquer usuário autenticado pode adicionar/excluir paióis (conforme solicitado).</div>
+
+      <h3 style="margin:14px 0 6px">Remover paiol</h3>
+      <select id="selectRemover"><option value="">Selecione um paiol</option></select>
+      <button id="btnRemove" class="small" style="margin-top:8px">Remover selecionado</button>
+
+      <div style="height:12px"></div>
+      <button id="btnCreateDefaults" class="small" type="button">Criar paióis padrão (1–4)</button>
+      <div id="actionMsg"></div>
+    </section>
+  </aside>
+
+  <section class="panel" style="min-height:240px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <h2 style="margin:0">Paióis cadastrados</h2>
+      <div class="toolbar" style="margin-left:auto">
+        <button id="btnReload" class="small">Atualizar</button>
+        <button id="btnToggleMode" class="small">Testar sem Firebase</button>
+      </div>
+    </div>
+
+    <div id="lista" class="list"></div>
+    <div id="empty" class="help muted" style="display:none;margin-top:12px">Nenhum paiol encontrado. Use "Criar paióis padrão" ou adicione um novo.</div>
+    <div id="errorBox" style="display:none"></div>
+  </section>
+</main>
+
+<footer>© <span id="ano"></span> Controle de Paiol • Multiusuário</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ===== CONFIGURE AQUI =====
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAYvkpAe9Nfnn53JlSg8vOrKUFmUHn6oek",
+  authDomain: "controle-de-paiol.firebaseapp.com",
+  projectId: "controle-de-paiol",
+  storageBucket: "controle-de-paiol.firebasestorage.app",
+  messagingSenderId: "202438664461",
+  appId: "1:202438664461:web:c60d98f85fe8ab2ece9044",
+  measurementId: "G-BD3BR04LJQ"
+};
+  // ===========================
+
+  const app = initializeApp(firebaseConfig);
+  let auth, db;
+  let useLocal = false; // fallback mode if Firebase appears not configured or blocked
+  const localKey = "paiol_local_v2";
+
+  // UI refs
+  const authForm = document.getElementById("authForm");
+  const emailEl = document.getElementById("email");
+  const senhaEl = document.getElementById("senha");
+  const btnLogin = document.getElementById("btnLogin");
+  const btnRegister = document.getElementById("btnRegister");
+  const authMsg = document.getElementById("authMsg");
+  const manageSection = document.getElementById("manage");
+  const nomePaiol = document.getElementById("nomePaiol");
+  const btnAdd = document.getElementById("btnAdd");
+  const selectRemover = document.getElementById("selectRemover");
+  const btnRemove = document.getElementById("btnRemove");
+  const lista = document.getElementById("lista");
+  const empty = document.getElementById("empty");
+  const errorBox = document.getElementById("errorBox");
+  const btnCreateDefaults = document.getElementById("btnCreateDefaults");
+  const btnReload = document.getElementById("btnReload");
+  const btnToggleMode = document.getElementById("btnToggleMode");
+  const actionMsg = document.getElementById("actionMsg");
+  const userEmail = document.getElementById("userEmail");
+  const userRow = document.getElementById("userRow");
+  const signOutBtn = document.getElementById("signOutBtn");
+  const configWarning = document.getElementById("configWarning");
+
+  // Helpers
+  const showMsg = (el, txt, type="ok", tm=3500) => {
+    el.innerHTML = '<div class="msg '+(type==='ok'?'ok':type==='warn'?'warn':'err')+'">'+txt+'</div>';
+    if (tm>0) setTimeout(()=>{ el.innerHTML=""; }, tm);
+  };
+  const setError = (txt) => { errorBox.style.display="block"; errorBox.innerHTML = '<div class="msg err">'+txt+'</div>'; };
+  const clearError = () => { errorBox.style.display="none"; errorBox.innerHTML=""; };
+
+  // Validate config quickly (detect placeholder)
+  function configLooksValid(cfg){
+    if(!cfg || !cfg.apiKey) return false;
+    const badPatterns = ["COLOQUE","SUA_","SEU_","YOUR_","REPLACE"];
+    for(const p of badPatterns) if(cfg.apiKey.includes(p) || (cfg.authDomain && cfg.authDomain.includes(p)) ) return false;
+    return true;
+  }
+
+  if(!configLooksValid(firebaseConfig)){
+    configWarning.style.display="block";
+    configWarning.innerHTML = "⚠️ <strong>Atenção:</strong> O firebaseConfig no arquivo não foi preenchido. Você pode testar localmente (sem Firebase) clicando em <em>Testar sem Firebase</em>, mas para usar com vários usuários substitua as chaves pelo seu projeto Firebase e autorize o domínio.";
+    btnToggleMode.style.display = "inline-block";
+    useLocal = true;
+  } else {
+    try {
+      auth = getAuth(app);
+      db = getFirestore(app);
+    } catch(err){
+      // degrade gracefully
+      console.warn("Firebase init falhou:",err);
+      useLocal = true;
+      configWarning.style.display="block";
+      configWarning.textContent = "Falha ao inicializar o Firebase. O app entrou em modo de teste local. (Verifique chaves e permissões)";
+    }
+  }
+
+  // Local fallback helpers
+  function loadLocal(){
+    try { return JSON.parse(localStorage.getItem(localKey) || "[]"); } catch { return []; }
+  }
+  function saveLocal(arr){ localStorage.setItem(localKey, JSON.stringify(arr)); }
+
+  async function addPaiolBackend(nome){
+    if(!nome) throw new Error("Nome vazio");
+    if(useLocal){
+      const arr = loadLocal();
+      const id = "local_"+Date.now();
+      const item = {id, nome, tempAtual:null, tempMax:null, tempMin:null, umidAtual:null, lacre:"Integridade OK", createdAt:new Date().toISOString()};
+      arr.unshift(item);
+      saveLocal(arr);
+      return item;
+    } else {
+      const ref = await addDoc(collection(db,"paiois"), { nome, tempAtual:null, tempMax:null, tempMin:null, umidAtual:null, lacre:"Integridade OK", createdAt: serverTimestamp() });
+      return { id: ref.id };
+    }
+  }
+
+  async function removePaiolBackend(id){
+    if(!id) throw new Error("Nenhum id");
+    if(useLocal){
+      let arr = loadLocal();
+      arr = arr.filter(x => x.id !== id);
+      saveLocal(arr);
+      return true;
+    } else {
+      await deleteDoc(doc(db,"paiois", id));
+      return true;
+    }
+  }
+
+  // Render list (local or remote)
+  let unsubscribe = null;
+  function renderLocalList(){
+    const arr = loadLocal();
+    lista.innerHTML = "";
+    selectRemover.innerHTML = "<option value=''>Selecione um paiol</option>";
+    if(arr.length===0){ empty.style.display = "block"; } else empty.style.display="none";
+    arr.forEach(p => {
+      const div = document.createElement("div"); div.className="card";
+      div.innerHTML = "<div class='row'><strong>"+escapeHtml(p.nome)+"</strong><div class='right muted'>"+(p.createdAt?new Date(p.createdAt).toLocaleString():"")+"</div></div>"+
+                      "<div class='help'>Temp atual: "+(p.tempAtual==null?"-":p.tempAtual)+"</div>";
+      lista.appendChild(div);
+      const opt = document.createElement("option"); opt.value=p.id; opt.textContent=p.nome; selectRemover.appendChild(opt);
+    });
+  }
+
+  function escapeHtml(s){ return (s||"").toString().replace(/</g,"&lt;"); }
+
+  async function startRemoteListener(){
+    clearError();
+    if(!db) return setError("Banco Firestore não inicializado.");
+    try{
+      const q = query(collection(db,"paiois"), orderBy("createdAt","desc"));
+      unsubscribe = onSnapshot(q, snap => {
+        lista.innerHTML = "";
+        selectRemover.innerHTML = "<option value=''>Selecione um paiol</option>";
+        if(snap.empty){ empty.style.display = "block"; } else empty.style.display="none";
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          const div = document.createElement("div"); div.className="card";
+          div.innerHTML = "<div class='row'><strong>"+escapeHtml(data.nome)+"</strong><div class='right muted'>"+(data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() : "")+"</div></div>"+
+                          "<div class='help'>Temp atual: "+(data.tempAtual==null?"-":data.tempAtual)+"</div>";
+          lista.appendChild(div);
+          const opt = document.createElement("option"); opt.value = docSnap.id; opt.textContent = data.nome; selectRemover.appendChild(opt);
+        });
+      }, err => {
+        setError("Erro ao ouvir paióis: "+err.message);
+        console.error(err);
+      });
+    } catch(err){
+      setError("Erro iniciando listener: "+err.message);
+    }
+  }
+
+  // Public functions bound to UI
+  btnAdd.addEventListener("click", async ()=>{
+    const nome = nomePaiol.value.trim();
+    if(!nome) return showMsg(actionMsg,"Digite o nome do paiol","warn",4000);
+    btnAdd.disabled = true;
+    try {
+      const res = await addPaiolBackend(nome);
+      showMsg(actionMsg, "Paiol '"+nome+"' adicionado com sucesso.","ok",4000);
+      nomePaiol.value = "";
+      if(useLocal) renderLocalList();
+    } catch(err){
+      showMsg(actionMsg, "Falha ao adicionar: "+err.message, "err",6000);
+      console.error(err);
+    } finally { btnAdd.disabled = false; }
+  });
+
+  btnRemove.addEventListener("click", async ()=>{
+    const id = selectRemover.value;
+    if(!id) return showMsg(actionMsg, "Selecione um paiol para remover.","warn",3000);
+    if(!confirm("Remover paiol selecionado? Essa ação não remove automaticamente histórico existente.")) return;
+    btnRemove.disabled = true;
+    try {
+      await removePaiolBackend(id);
+      showMsg(actionMsg, "Paiol removido.", "ok",4000);
+      if(useLocal) renderLocalList();
+    } catch(err){
+      showMsg(actionMsg, "Falha ao remover: "+err.message, "err",6000);
+      console.error(err);
+    } finally { btnRemove.disabled = false; }
+  });
+
+  btnCreateDefaults.addEventListener("click", async ()=>{
+    btnCreateDefaults.disabled = true;
+    const defaults = ["Paiol 1","Paiol 2","Paiol 3","Paiol 4"];
+    try {
+      for(const n of defaults) await addPaiolBackend(n);
+      showMsg(actionMsg, "Paióis padrão criados.", "ok",4000);
+      if(useLocal) renderLocalList();
+    } catch(err){
+      showMsg(actionMsg, "Falha ao criar paióis: "+err.message,"err",6000);
+    } finally { btnCreateDefaults.disabled = false; }
+  });
+
+  btnReload.addEventListener("click", ()=>{ if(useLocal) renderLocalList(); else { if(unsubscribe) unsubscribe(); startRemoteListener(); } });
+
+  btnToggleMode.addEventListener("click", ()=>{
+    useLocal = !useLocal;
+    if(useLocal){
+      configWarning.style.display="block"; configWarning.textContent = "Modo local ativado (sem Firebase). As mudanças ficam no seu navegador.";
+      if(unsubscribe) unsubscribe();
+      renderLocalList();
+      manageSection.style.display = "block";
+    } else {
+      configWarning.style.display="none";
+      startRemoteListener();
+    }
+  });
+
+  // Authentication handlers (remote only)
+  btnLogin.addEventListener("click", async ()=>{
+    if(useLocal) { showMsg(authMsg, "Modo local: login não necessário.", "ok", 2500); return; }
+    authMsg.textContent = "";
+    try {
+      await signInWithEmailAndPassword(getAuthInstance(), emailEl.value.trim(), senhaEl.value.trim());
+    } catch(err){ authMsg.textContent = "Erro: "+ err.message; }
+  });
+  btnRegister.addEventListener("click", async ()=>{
+    if(useLocal) { showMsg(authMsg, "Modo local: registro não necessário.", "ok", 2500); return; }
+    authMsg.textContent = "";
+    try {
+      await createUserWithEmailAndPassword(getAuthInstance(), emailEl.value.trim(), senhaEl.value.trim());
+      authMsg.textContent = "Conta criada. Você será logado automaticamente.";
+    } catch(err){ authMsg.textContent = "Erro: "+ err.message; }
+  });
+  signOutBtn.addEventListener("click", async ()=>{ if(!useLocal) await signOut(getAuthInstance()); userRow.style.display="none"; });
+
+  function getAuthInstance(){
+    if(!auth) auth = getAuth(app);
+    return auth;
+  }
+
+  // Start
+  (function init(){
+    document.getElementById("ano").textContent = new Date().getFullYear();
+    if(useLocal){ manageSection.style.display="block"; renderLocalList(); } // allow local test
+    else {
+      try{
+        auth = getAuth(app);
+        db = getFirestore(app);
+        onAuthStateChanged(auth, user => {
+          if(user){ userEmail.textContent = user.email || "—"; userRow.style.display="flex"; manageSection.style.display="block"; startRemoteListener(); }
+          else { userRow.style.display="none"; manageSection.style.display="none"; if(unsubscribe) unsubscribe(); }
+        });
+      } catch(err){
+        console.error("Auth/DB error:",err);
+        useLocal = true;
+        configWarning.style.display="block"; configWarning.textContent = "Erro inicializando autenticação. Entrando em modo local.";
+        manageSection.style.display="block";
+        renderLocalList();
+      }
+    }
+  })();
+
+</script>
+</body>
+</html>
