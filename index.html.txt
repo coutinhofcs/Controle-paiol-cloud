@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Paiol</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="script.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Controle de Paiol</h1>
+        <p>Gerenciamento • Multiusuário</p>
+    </header>
+
+    <section id="authSection">
+        <div id="userRow" style="display:none;">
+            <span>Conectado como <span id="userNick"></span></span>
+            <button id="signOutBtn">Sair</button>
+        </div>
+        <form id="authForm">
+            <input type="email" id="email" placeholder="E-mail">
+            <input type="password" id="senha" placeholder="Senha">
+            <div>
+                <button type="button" id="btnLogin">Entrar</button>
+                <button type="button" id="btnRegister">Registrar</button>
+            </div>
+            <div id="authMsg"></div>
+        </form>
+    </section>
+
+    <section id="manageSection" style="display:none;">
+        <h2>Adicionar novo paiol</h2>
+        <input type="text" id="nomePaiol" placeholder="Nome do paiol">
+        <button id="btnAdd">Adicionar paiol</button>
+        <p class="help">Qualquer usuário autenticado pode adicionar/excluir paióis.</p>
+
+        <h2>Remover paiol</h2>
+        <select id="selectRemover">
+            <option value="">Selecione um paiol</option>
+        </select>
+        <button id="btnRemove">Remover selecionado</button>
+        <div id="actionMsg"></div>
+    </section>
+
+    <main>
+        <section id="panelSection">
+            <h2>Paióis</h2>
+            <p class="help">Selecione um paiol para editar ou veja o histórico</p>
+            <div id="tabs">
+                <button id="tabPanel" class="active">Painel</button>
+                <button id="tabHist">Histórico</button>
+            </div>
+            <div id="listArea"></div>
+            <div id="empty" style="display:none;">Nenhum paiol encontrado. Use "Criar paióis padrão" ou adicione um novo.</div>
+        </section>
+
+        <section id="editor" style="display:none;">
+            <h2 id="editorTitle">Editar Paiol</h2>
+            <label>Nome</label>
+            <input type="text" id="editName" disabled>
+            <label>Temperatura Atual (°C)</label>
+            <input type="number" id="editTemp" step="0.1">
+            <label>Temperatura Máx (°C)</label>
+            <input type="number" id="editMax" step="0.1">
+            <label>Temperatura Mín (°C)</label>
+            <input type="number" id="editMin" step="0.1">
+            <label>Umidade (%)</label>
+            <input type="number" id="editUmid" step="0.1">
+            <label>Número do Lacre</label>
+            <input type="text" id="editLacre">
+            <div>
+                <button id="btnSave">Salvar</button>
+                <button id="btnCancel">Cancelar</button>
+            </div>
+        </section>
+
+        <section id="histArea" style="display:none;">
+            <h2>Histórico de alterações</h2>
+            <div>
+                <button id="btnExportCsv">Exportar Histórico (CSV)</button>
+                <button id="btnExportCsvPaiol">Exportar Histórico (CSV) — Paiol selecionado</button>
+            </div>
+            <p class="help">Apenas usuários logados podem ver o histórico.</p>
+            <table id="histTable">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Paiol</th>
+                        <th>Usuário</th>
+                        <th>Alterações</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>© <span id="ano"></span> Controle de Paiol</p>
+    </footer>
+</body>
+</html>
